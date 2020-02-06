@@ -3,8 +3,22 @@ import ReactDOM from 'react-dom';
 import './index.css';
 import App from './App';
 import * as serviceWorker from './serviceWorker';
+import 'bootstrap/dist/css/bootstrap.min.css';
 
-ReactDOM.render(<App />, document.getElementById('root'));
+import { BrowserRouter as Router} from 'react-router-dom';
+
+import { library } from '@fortawesome/fontawesome-svg-core'
+import { fab } from '@fortawesome/free-brands-svg-icons'
+import { faTrash, faPlus, faEdit } from '@fortawesome/free-solid-svg-icons'
+
+library.add(fab, faTrash, faPlus, faEdit)
+
+ReactDOM.render((
+  <Router>
+    <App />
+  </Router>
+), document.getElementById('root'));
+
 
 // If you want your app to work offline and load faster, you can change
 // unregister() to register() below. Note this comes with some pitfalls.
