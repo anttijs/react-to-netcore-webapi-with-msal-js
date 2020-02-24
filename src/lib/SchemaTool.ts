@@ -25,42 +25,33 @@ export interface Schema {
     KeyName: string|null;
     Props: Prop[]
 }
-interface SchemaTool {
-    schema: Schema | null;
-    editFields(): Prop[];
-    label(prop: Prop): string;
-    labelForCheckBox(prop: Prop): string;
-    invalidFeedback(prop: Prop, dto: any): string;
-    state(prop: Prop, dto: any): boolean;
-    isValidState(dto: any): boolean
-    isNumeric(prop: Prop): boolean
 
-
-}
-const schemaTool: SchemaTool =
-{
-  schema:  null,
+export class SchemaTool  {
+  schema:  Schema
+  constructor(schema: Schema) {
+    this.schema = schema
+  }
   editFields() {
     if (!this.schema)
         return []
     return this.schema.Props.filter( ({ Hidden }) => { return !Hidden })
-  },
-  label(prop) {
+  }
+  label(prop: Prop) {
     if (prop.Type === 'bool')
       return ''
-    else if (prop.Title === null)
+    else if (prop.Title === null || prop.Title==="")
       return prop.Name!
     else
       return prop.Title
-  },
-  labelForCheckBox(prop) {
+  }
+  labelForCheckBox(prop: Prop) {
     if (prop.Type !== 'bool')
       return ''
     if (prop.Title === null)
       return prop.Name!
     return prop.Title
-  },
-  invalidFeedback(prop, dto) {
+  }
+  invalidFeedback(prop: Prop, dto: any): string {
     if (this.state(prop, dto)===true){
       return ''
     }
@@ -84,8 +75,8 @@ const schemaTool: SchemaTool =
       }
     }
     return ''
-  },
-  state(prop, dto) {
+  }
+  state(prop: Prop, dto: any): boolean {
     if (prop.Required === false && (dto === null || dto === undefined || dto.length===0))
       return true
     if (prop.Required === true && prop.Type === 'enum' && prop.PropEnums.find( ({value}) => value === dto) === undefined)
@@ -108,14 +99,23 @@ const schemaTool: SchemaTool =
       }
     }
     return true
-  },
-  isValidState(dto) {
+  }
+  isValidState(dto: any): boolean {
     if (!this.schema)
         return true;
     return this.schema.Props.filter( ({ Hidden }) => { return !Hidden }).every(prop => this.state(prop, dto[prop.Name!])===true)
-  },
-  isNumeric(prop) {
+  }
+  isNumeric(prop: Prop) {
     return (prop.Type === 'number')
   }
+  strToValue(prop: Prop, valuestr: string): any {
+    if (this.isNumeric(prop)) {
+      return Number(valuestr)
+    }
+    if (prop.Type === 'enum') {
+      return Number(valuestr)
+    }
+    return valuestr
+
+  }
 }
-export default schemaTool

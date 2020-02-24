@@ -3,13 +3,11 @@ import {LinkContainer, IndexLinkContainer} from 'react-router-bootstrap'
 import Navbar from 'react-bootstrap/Navbar'
 import Nav from 'react-bootstrap/Nav'
 import Form from 'react-bootstrap/Form'
-import Button from 'react-bootstrap/Button'
-import FormControl from 'react-bootstrap/FormControl'
 import { Switch, Route } from 'react-router-dom'
 import Home from './Home'
 import Game from './Game'
 import NavDatabase from './NavDatabase'
-
+import {LoginButton} from './LoginButton'
 const NavMain = () => (
     <>
     <Navbar bg="primary" variant="dark" sticky="top">
@@ -26,8 +24,7 @@ const NavMain = () => (
         </LinkContainer>
     </Nav>
     <Form inline>
-      <FormControl type="text" placeholder="Search" className="mr-sm-2" />
-      <Button variant="outline-light">Search</Button>
+      <LoginButton />
     </Form>
   </Navbar>
   <Switch>

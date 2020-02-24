@@ -1,68 +1,135 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useParams, useHistory } from 'react-router-dom';
 
-import CRUDService from './lib/CRUDService'
-import SchemaTool, { Schema, Prop } from './lib/SchemaTool'
+import {useGet, putDTO, postDTO, getSingleName} from './lib/CRUDService'
+import { SchemaTool, Prop } from './lib/SchemaTool'
 
 import Form from 'react-bootstrap/Form'
 import Button from 'react-bootstrap/Button'
 import Col from 'react-bootstrap/Col'
+import Alert from 'react-bootstrap/Alert'
+import Spinner from 'react-bootstrap/Spinner'
 
+import cogoToast from 'cogo-toast';
+import { isEqual,cloneDeep } from 'lodash'
 
 interface EditDTOParams {
     entity: string,
-    userId: string
+    id: string
 }
-interface ResponseData {
-    data: any;
-    schema: Schema
-}
-function useCRUDService(initialEntity: string, initialId: number): [ResponseData | null, React.Dispatch<React.SetStateAction<ResponseData | null>>] {
-    const [responseData, setResponseData] = useState<ResponseData|null>(null)
-    const [entity, setEntity] = useState<string>(initialEntity)
-    const [id, setId] = useState<number>(initialId)
-    if (entity !== initialEntity || id !== initialId) {
-      setEntity(initialEntity)
-      setId(initialId)
-      console.log('update', entity, initialEntity)
-    }
-    else {
-      console.log('no update', entity, initialEntity)
-    }
-    useEffect(() => {
-      console.log('getting data', entity)
-      CRUDService.get(entity, id).then((response: any) => {setResponseData(response.data); console.log('joo', response.data)})
-    },[entity, id])
-    console.log('useCRUDService',responseData)
-    return [responseData, setResponseData]
-  }
+
+
 const EditDTO: React.FC = () => {
     const params = useParams<EditDTOParams>();
+    const Id = params.id==="New" ? -1 : parseInt(params.id)
     const history = useHistory(); 
-    let [responseData, setResponseData] = useCRUDService( params.entity, parseInt(params.userId)! )
-    SchemaTool.schema = responseData === null ? null : responseData.schema
-
-    function handleChange(id: string, e: React.FormEvent<HTMLInputElement>): void {
-        const newValue = e.currentTarget.type === 'checkbox' ? e.currentTarget.checked : e.currentTarget.value;
+    let [{data, schema, isLoading, isError, errorText}, updateGet] = useGet( params.entity, Id )
+    const schemaTool = schema === null ? null : new SchemaTool(schema!)
+    console.log('ddd', schemaTool, schema)
+    
+    
+    const handleChange = (id: string, e: React.FormEvent<HTMLInputElement>): void => {
+        const prop: Prop | undefined = schemaTool?.schema?.Props.find(x => x.Name === id)
+        if (!prop) {
+            return
+        }
+        const newValue = e.currentTarget.type === 'checkbox' ? e.currentTarget.checked : schemaTool?.strToValue(prop, e.currentTarget.value);
         console.log('newvalue:',newValue)
-        if (responseData && responseData.data) {
-            const newData: ResponseData = {data: {...responseData.data}, schema: {...responseData.schema}}
-            newData.data[id] = newValue
-            setResponseData(newData)
+        if (data) {
+            data[id] = newValue
+            updateGet(data)
         }
     }
-    
-    
-    function renderControl(prop: Prop) {
+    const handleUpdateOrAdd = () => {
+        if (Id === -1) {
+            handleAdd()
+        }
+        else {
+            handleUpdate()
+        }
+    }
+
+    const handleUpdate = () => {
+        if (!data) {
+            history.goBack()
+            return
+        }
+        console.log('updating', data.Name)
+        putDTO(params.entity, data)
+        .then(() => {
+            console.log("OK")
+            const { hide } = cogoToast.info(
+            <div>
+            <b>Update successful</b>
+            <div>
+                {`Updated info for ${getSingleName(params.entity)} ${data.Name}`}
+            </div>
+            </div>,
+            {hideAfter: 5, onClick: () =>  hide!()} )
+        })
+        .catch((error: Error) => {
+            console.log(error)
+            const { hide } = cogoToast.error(
+            <div>
+            <b>Update failed</b>
+            <div>
+                {`Failed to update info for ${getSingleName(params.entity!)} ${data.Name}.`} 
+                <br/>
+                {error.message}
+            </div>
+            </div>,
+            {hideAfter: 5, onClick: () =>  hide!()} )
+        })
+        .finally(() => {
+            history.goBack()
+        })
+    }
+    const handleAdd = () => {
+        if (!data) {
+            history.goBack()
+            return
+        }
+        postDTO(params.entity, data)
+        .then(() => {
+            const { hide } = cogoToast.info(
+            <div>
+            <b>Add successful</b>
+            <div>
+                {`Added info for ${getSingleName(params.entity)} ${data.Name}`}
+            </div>
+            </div>,
+            {hideAfter: 5, onClick: () =>  hide!()} )
+        })
+        .catch((error) => {
+            const { hide } = cogoToast.error(
+            <div>
+            <b>Add failed</b>
+            <div>
+                {`Failed to add info for ${getSingleName(params.entity!)} ${data.Name}.`} 
+                <br/>
+                {errorText}
+            </div>
+            </div>,
+            {hideAfter: 5, onClick: () =>  hide!()} )
+        })
+        .finally(() => {
+            history.goBack()
+        })
+    }
+    const renderControl = (prop: Prop) => {
         let retval = null;
+        if (schemaTool===null) {
+            return null
+        }
         switch (prop.Type) {
             case 'enum':
                 retval = ( 
                     <Form.Row>
-                    <Form.Label column sm={2}>{SchemaTool.label(prop)}</Form.Label>
+                    <Form.Label column sm={2}>{schemaTool.label(prop)}</Form.Label>
                     <Col>
-                    <Form.Control as="select" 
-                    value={responseData!.data[prop!.Name!]} 
+                    <Form.Control 
+                    as="select" 
+                    value={data[prop!.Name!]} 
                     onChange={(e: React.FormEvent<HTMLInputElement>) => handleChange(prop.Name, e )}
                     >
                     { prop.PropEnums.map((enumDesc, index) =>
@@ -80,8 +147,8 @@ const EditDTO: React.FC = () => {
                         <Col sm={2}/>
                     <Form.Check 
                     type="checkbox"
-                    label={SchemaTool.labelForCheckBox(prop)}
-                    checked={responseData!.data[prop!.Name!]}
+                    label={schemaTool.labelForCheckBox(prop)}
+                    checked={data[prop!.Name!]}
                     onChange={(e: React.FormEvent<HTMLInputElement>) => handleChange(prop.Name, e )}
                     />
                     </Form.Row>
@@ -90,11 +157,11 @@ const EditDTO: React.FC = () => {
             default:
                 retval = (
                     <Form.Row>
-                    <Form.Label column sm={2}>{SchemaTool.label(prop)}</Form.Label>
+                    <Form.Label column sm={2}>{schemaTool.label(prop)}</Form.Label>
                     <Col>
                     <Form.Control 
                     type={prop.InputType} 
-                    value={ responseData!.data![prop!.Name!] }  
+                    value={ data![prop!.Name!] }  
                     onChange={(e: React.FormEvent<HTMLInputElement>) => handleChange(prop.Name, e )}
                     />
                     </Col>
@@ -104,12 +171,34 @@ const EditDTO: React.FC = () => {
         }
         return retval
     }
-    function renderForm() {
-        const x = SchemaTool.editFields().map((prop, index) => {
+    const renderTitle = () => {
+        if (Id === -1) {
+            return ( <> <p/><h4>{`Add new ${getSingleName(params.entity)}`}</h4></>)
+        }
+        else {
+            return (<> <p/><h4>{`Edit ${getSingleName(params.entity)} details`}</h4></>)
+        }
+    }
+    const renderError = () =>
+    {
+        return (
+        <Alert variant="danger">
+            <Alert.Heading>Oh snap! You got an error!</Alert.Heading>
+            {errorText}
+        </Alert>
+        )
+    }
+    
+    const renderForm = () => {
+        if (schemaTool===null) {
+            return null
+        }
+        const x = schemaTool.editFields().map((prop, index) => {
             return (
             <Form.Group key={index}>
-            {renderControl(prop)}
-            </Form.Group>)
+                {renderControl(prop)}
+            </Form.Group>
+            )
         })
         return (
             <Form>
@@ -117,7 +206,7 @@ const EditDTO: React.FC = () => {
                 <Form.Row>
                     <Col sm={8}></Col>
                     <Col sm={2}>
-                    <Button block variant="primary" onClick={() => history.goBack()}>
+                    <Button block variant="primary" onClick={handleUpdateOrAdd}>
                         OK
                     </Button>
                     </Col>
@@ -130,13 +219,12 @@ const EditDTO: React.FC = () => {
             </Form>
         )
     }
-    
-    if (responseData == null)
-        return (<h1>Loading...</h1>)
     return (
         <>
-        <h1>{params.entity}:{params.userId}</h1>
-        { renderForm() }
+            {renderTitle()}
+            { isError && renderError() }
+            { isLoading ? (<><Spinner animation="border" variant="info" size="sm"/> <span>Loading</span></>)  
+            : (renderForm())  }
         </>
     )
 }
