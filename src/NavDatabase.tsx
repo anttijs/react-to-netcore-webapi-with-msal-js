@@ -6,7 +6,7 @@ import CRUDTable from './CRUDTable'
 import EditDTO from './EditDTO'
 import {apiMethods} from './lib/CRUDService'
 
-function usePersistedState(key: string, defaultValue: any) {
+const usePersistedState = (key: string, defaultValue: any) => {
   const [state, setState] = useState(
     () => {
       const val = localStorage.getItem(key);
@@ -25,7 +25,7 @@ function usePersistedState(key: string, defaultValue: any) {
 const NavDatabase: React.FC = () => {
     const [key, setKey] = usePersistedState("SelectedEntity", "Movies")
 
-    const x = apiMethods.map((entity,index) => 
+    const linkItems = apiMethods.map((entity,index) => 
           <LinkContainer key={index} to={`/Database/${entity.Name}`} exact>
           <Nav.Link eventKey={entity.Name}>{entity.Name}</Nav.Link>
           </LinkContainer>
@@ -38,7 +38,7 @@ const NavDatabase: React.FC = () => {
         activeKey={key}
         onSelect={(selectedKey: string) => setKey(selectedKey)}
         >
-        {x}
+        {linkItems}
         </Nav>
     <Switch>
     <Route exact path='/Database'>
@@ -61,7 +61,7 @@ const NavDatabase: React.FC = () => {
 export default NavDatabase
 
 
-function NoMatch() {
+const NoMatch = () => {
     let location = useLocation();
   
     return (

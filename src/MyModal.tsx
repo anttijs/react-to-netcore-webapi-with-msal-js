@@ -5,8 +5,9 @@ import Modal from 'react-bootstrap/Modal'
 import Button from 'react-bootstrap/Button'
 
 
-export function messageBox(title: string, message: string, OKButtonTitle: string) {
-  return new Promise<void>((resolve, reject) => {
+export const messageBox = async (title: string, message: string, OKButtonTitle: string = "OK") => {
+return new Promise<void>((resolve, reject) => {
+  try {
     let show=true
     const handleOK = () => {
       show=false
@@ -33,7 +34,11 @@ export function messageBox(title: string, message: string, OKButtonTitle: string
       <MyModal onOK={handleOK} onCancel={handleCancel} show={show} title={title} message={message} OKButtonTitle={OKButtonTitle} />,
       div
     );
-  });
+  }
+  catch(e) {
+    reject(new Error(e.message))
+  }
+});
 }
 
 

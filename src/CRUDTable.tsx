@@ -84,11 +84,11 @@ const CRUDRow: React.FC<CRUDRowProps> = (props) => {
   const dataCols =
       Object.keys(props.data).map( (key, index) => {
         let val = props.data[key]
-        if (typeof val === 'object' || Array.isArray(val)) {
+        if (val && (typeof val === 'object' || Array.isArray(val))) {
             return null
         }
         if (typeof val === 'string' && val.length > 30) {
-          val = val.slice(0,30)
+          val = `${val.slice(0,30)}...`
         }
         return <td key={index}>{val}</td> 
         }

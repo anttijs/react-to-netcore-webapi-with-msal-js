@@ -1,19 +1,13 @@
 import Axios, { AxiosResponse } from 'axios'
 import {Schema} from './SchemaTool'
 import React, {useState, useEffect, useReducer} from 'react'
- 
-export interface ResponseData {
+import {isEqual, cloneDeep} from 'lodash'
+
+interface ResponseData {
   data: any;
   schema: Schema
 }
-interface CRUD {
-    Name: string,
-    GetList: string,
-    GetSingle: string,
-    Put: string,
-    Post: string,
-    Delete: string
-}
+
 const RESOURCE_NAME = process.env.REACT_APP_API_ENDPOINT
 
 
@@ -24,7 +18,9 @@ const get = (name: string, id: number) => {
 }
 type StateforGet = {
   data: any,
+  dataOriginal: any,
   schema: Schema | undefined,
+  isChanged: boolean,
   isLoading: boolean,
   isError: boolean,
   errorText: string
@@ -40,7 +36,9 @@ const getReducer = (state: StateforGet,  action: ActionforGet) => {
       return {
         ...state,
         data: undefined,
+        dataOriginal: undefined,
         schema: undefined,
+        isChanged: false,
         isLoading: true,
         isError: false,
         errorText: ""
@@ -49,7 +47,9 @@ const getReducer = (state: StateforGet,  action: ActionforGet) => {
       return {
         ...state,
         data: action.payload!.data,
+        dataOriginal: cloneDeep(action.payload!.data),
         schema: action.payload!.schema,
+        isChanged: false,
         isLoading: false,
         isError: false,
         errorText: ""
@@ -58,16 +58,20 @@ const getReducer = (state: StateforGet,  action: ActionforGet) => {
     case "error":
       return {
         ...state,
-        data: action.payload!.data,
+        data: undefined,
+        dataOriginal: undefined,
         schema: undefined,
+        isChanged: false,
         isLoading: false,
         isError: true,
         errorText: action.payload!.errorText
       };
       case "update":
+        console.log('iseqaul',isEqual(action.payload!.data,state.dataOriginal), state.dataOriginal )
       return {
         ...state,
         data: action.payload!.data,
+        isChanged: !isEqual(action.payload!.data,state.dataOriginal),
         isLoading: false,
         isError: false,
         errorText: ""
@@ -79,11 +83,12 @@ const getReducer = (state: StateforGet,  action: ActionforGet) => {
 export const useGet = (initialEntity: string, initialId: number): [StateforGet, (data: any)=> void] => {
   const [entity, setEntity] = useState<string>(initialEntity)
   const [id, setId] = useState<number>(initialId)
-  const [state, dispatch] = useReducer(getReducer, {data: undefined, schema: undefined, isLoading: false, isError: false, errorText:""})
+  const [state, dispatch] = useReducer(getReducer, {data: undefined, dataOriginal: undefined, schema: undefined, isChanged: false, isLoading: false, isError: false, errorText:""})
   
-  const updateDTO = (data: any) => {
+  const updateData = (data: any) => {
     dispatch({type: 'update', payload: {data: data, schema: undefined, errorText:""}})
   }
+
   if (entity !== initialEntity || id !== initialId) {
     setEntity(initialEntity)
     setId(initialId)
@@ -103,7 +108,7 @@ export const useGet = (initialEntity: string, initialId: number): [StateforGet, 
       dispatch({type:'error', payload: { data: undefined, schema: undefined, errorText: getErrorText(e)}})
     })
   },[entity, id])
-  return [state, updateDTO]
+  return [state, updateData]
 }
 
 type StateforGetList = {

@@ -1,9 +1,9 @@
-import React from 'react';
+import React, {useState} from 'react';
 import { useParams, useHistory } from 'react-router-dom';
 
 import {useGet, putDTO, postDTO, getSingleName} from './lib/CRUDService'
 import { SchemaTool, Prop } from './lib/SchemaTool'
-
+import Container from 'react-bootstrap/Container'
 import Form from 'react-bootstrap/Form'
 import Button from 'react-bootstrap/Button'
 import Col from 'react-bootstrap/Col'
@@ -11,7 +11,7 @@ import Alert from 'react-bootstrap/Alert'
 import Spinner from 'react-bootstrap/Spinner'
 
 import cogoToast from 'cogo-toast';
-import { isEqual,cloneDeep } from 'lodash'
+
 
 interface EditDTOParams {
     entity: string,
@@ -20,37 +20,53 @@ interface EditDTOParams {
 
 
 const EditDTO: React.FC = () => {
+    const [validated, setValidated] = useState(false)
     const params = useParams<EditDTOParams>();
     const Id = params.id==="New" ? -1 : parseInt(params.id)
     const history = useHistory(); 
-    let [{data, schema, isLoading, isError, errorText}, updateGet] = useGet( params.entity, Id )
+    let [{data, schema, isChanged, isLoading, isError, errorText}, updateData] = useGet( params.entity, Id )
     const schemaTool = schema === null ? null : new SchemaTool(schema!)
-    console.log('ddd', schemaTool, schema)
-    
     
     const handleChange = (id: string, e: React.FormEvent<HTMLInputElement>): void => {
         const prop: Prop | undefined = schemaTool?.schema?.Props.find(x => x.Name === id)
-        if (!prop) {
+        if (!prop || !data) {
             return
         }
         const newValue = e.currentTarget.type === 'checkbox' ? e.currentTarget.checked : schemaTool?.strToValue(prop, e.currentTarget.value);
-        console.log('newvalue:',newValue)
-        if (data) {
-            data[id] = newValue
-            updateGet(data)
-        }
+        data[id] = newValue
+        updateData(data)
     }
-    const handleUpdateOrAdd = () => {
-        if (Id === -1) {
-            handleAdd()
-        }
-        else {
-            handleUpdate()
+    const handleUpdateOrAdd = (e: React.FormEvent<HTMLFormElement>) => {
+        
+        const form = e.currentTarget!;
+        
+        e.preventDefault();
+        e.stopPropagation();
+        setValidated(true);
+        if (form.checkValidity()===true) {
+            if (Id === -1) {
+                handleAdd()
+            }
+            else {
+                handleUpdate()
+            }
         }
     }
 
     const handleUpdate = () => {
         if (!data) {
+            history.goBack()
+            return
+        }
+        if (isChanged === false) {
+            const { hide } = cogoToast.info(
+                <div>
+                <b>No changes where made.</b>
+                <div>
+                    {`No changes where made for ${getSingleName(params.entity)} ${data.Name}`}
+                </div>
+                </div>,
+                {hideAfter: 5, onClick: () =>  hide!()} )
             history.goBack()
             return
         }
@@ -129,13 +145,19 @@ const EditDTO: React.FC = () => {
                     <Col>
                     <Form.Control 
                     as="select" 
-                    value={data[prop!.Name!]} 
+                    required={prop.Required}
+                    readOnly={prop.Readonly}
+                    value={ data[prop!.Name!] || ""} 
                     onChange={(e: React.FormEvent<HTMLInputElement>) => handleChange(prop.Name, e )}
                     >
+                     <option key="-1" value="" disabled></option>
                     { prop.PropEnums.map((enumDesc, index) =>
                     <option key={index} value={enumDesc.value}>{enumDesc.text}</option>)
                     }
                     </Form.Control>
+                    <Form.Control.Feedback type="invalid">
+                        {schemaTool.invalidFeedback(prop,data![prop!.Name])}
+                    </Form.Control.Feedback>
                     </Col>
                     </Form.Row>
                 )
@@ -161,9 +183,19 @@ const EditDTO: React.FC = () => {
                     <Col>
                     <Form.Control 
                     type={prop.InputType} 
-                    value={ data![prop!.Name!] }  
+                    required={prop.Required}
+                    readOnly={prop.Readonly}
+                    pattern={prop.Pattern || undefined}
+                    maxLength={prop.MaxLength || undefined}
+                    minLength={prop.MinLength || undefined}
+                    max={prop.Max || undefined}
+                    min={prop.Min || undefined}
+                    value={ data![prop!.Name!] || ""}  
                     onChange={(e: React.FormEvent<HTMLInputElement>) => handleChange(prop.Name, e )}
                     />
+                    <Form.Control.Feedback type="invalid">
+                        {schemaTool.invalidFeedback(prop,data![prop!.Name])}
+                    </Form.Control.Feedback>
                     </Col>
                     </Form.Row>
                 )
@@ -201,12 +233,13 @@ const EditDTO: React.FC = () => {
             )
         })
         return (
-            <Form>
+            <Container>
+            <Form noValidate validated={validated} onSubmit={handleUpdateOrAdd}> 
                 {x}
                 <Form.Row>
                     <Col sm={8}></Col>
                     <Col sm={2}>
-                    <Button block variant="primary" onClick={handleUpdateOrAdd}>
+                    <Button block variant="primary" type="submit">
                         OK
                     </Button>
                     </Col>
@@ -217,14 +250,15 @@ const EditDTO: React.FC = () => {
                     </Col>
                 </Form.Row>
             </Form>
+            </Container>
         )
     }
     return (
         <>
-            {renderTitle()}
-            { isError && renderError() }
-            { isLoading ? (<><Spinner animation="border" variant="info" size="sm"/> <span>Loading</span></>)  
-            : (renderForm())  }
+        {renderTitle()}
+        { isError && renderError() }
+        { isLoading ? (<><Spinner animation="border" variant="info" size="sm"/> <span>Loading</span></>)  
+        : (renderForm())  }
         </>
     )
 }
